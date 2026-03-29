@@ -98,7 +98,7 @@ sudo dnf install -y ffmpeg perl-Image-ExifTool
 ## Run
 
 ```bash
-python repurposer_gui.py
+python NiRepurpose.py
 ```
 
 ## Usage
@@ -119,7 +119,7 @@ When you are ready to publish GitHub releases for Windows, Linux, and macOS, you
 
 ```bash
 pip install pyinstaller
-pyinstaller --noconfirm --windowed --name NiRepurpose repurposer_gui.py
+pyinstaller --noconfirm --windowed --name NiRepurpose NiRepurpose.py
 ```
 
 Then create CI jobs (GitHub Actions) to build artifacts on each OS runner and attach to releases.
