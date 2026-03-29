@@ -1,0 +1,32 @@
+NiRepurpose
+Copyright (c) 2026 TheDevWhoSaysNi
+
+This product includes software developed by TheDevWhoSaysNi.
+
+If you remove attribution, the Knights Who Say Ni! may demand… a shrubbery! 🌿
+
+------------------------------------------------------------
+Third-Party Notices
+------------------------------------------------------------
+
+NiRepurpose uses the following tools installed on your PATH:
+
+1) ExifTool
+   ExifTool by Phil Harvey (Perl / distribution license).
+   Project: ExifTool
+   Source: https://exiftool.org/
+
+2) FFmpeg
+   FFmpeg is licensed under the LGPL/GPL depending on build configuration.
+   Project: FFmpeg
+   Source: https://ffmpeg.org/
+
+
+NiRepurpose uses the the following artwork:
+
+1) Icon
+   Source: https://www.freepik.com/icon/camera_1042339
+
+
+NiRepurpose is thankful to https://github.com/pandoo7 for the idea and original Python code for batch processing of images. I added his main code, mirror flip, and random file names to the Ni template and added video processing, and the original options from NiClean.
+

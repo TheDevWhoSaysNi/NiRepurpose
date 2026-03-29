@@ -1,0 +1,128 @@
+name: Build NiRepurpose Releases
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  APP_VERSION: "v0.1.0"
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset_name: NiRepurpose-Windows.zip
+          - os: ubuntu-latest
+            asset_name: NiRepurpose-Linux.zip
+          - os: macos-latest
+            asset_name: NiRepurpose-macOS.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name NiRepurpose `
+            --collect-all customtkinter `
+            --icon "assets\nirepurpose.ico" `
+            --add-data "assets\nirepurpose.ico;assets" `
+            NiRepurpose.py
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --onefile --name NiRepurpose \
+            --collect-all customtkinter \
+            --icon "assets/nirepurpose.png" \
+            --add-data "assets/nirepurpose.png:assets" \
+            NiRepurpose.py
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --windowed --name NiRepurpose \
+            --collect-all customtkinter \
+            --icon "assets/nirepurpose.icns" \
+            --add-data "assets/nirepurpose.icns:assets" \
+            NiRepurpose.py
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item dist\NiRepurpose.exe release\NiRepurpose.exe -Force
+          Compress-Archive -Path release\* -DestinationPath "${{ matrix.asset_name }}" -Force
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p release
+          cp dist/NiRepurpose release/NiRepurpose
+          chmod +x release/NiRepurpose
+          (cd release && zip -r "../${{ matrix.asset_name }}" .)
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p release
+          cp -R dist/NiRepurpose.app release/NiRepurpose.app
+          ditto -c -k --sequesterRsrc --keepParent release/NiRepurpose.app "${{ matrix.asset_name }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: NiRepurpose ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          files: |
+            artifacts/**/NiRepurpose-Windows.zip
+            artifacts/**/NiRepurpose-Linux.zip
+            artifacts/**/NiRepurpose-macOS.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
