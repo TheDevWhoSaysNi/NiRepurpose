@@ -62,6 +62,17 @@ def resource_path(relative: str) -> str:
     return str(base / relative)
 
 
+def subprocess_kwargs_no_window() -> dict:
+    if platform.system() == "Windows":
+        startup_info = subprocess.STARTUPINFO()
+        startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        return {
+            "creationflags": subprocess.CREATE_NO_WINDOW,
+            "startupinfo": startup_info,
+        }
+    return {}
+
+
 def generate_random_image_name() -> str:
     now = datetime.datetime.now()
     random_days = random.randint(-90, 0)
@@ -122,6 +133,7 @@ def strip_all_metadata(path: str) -> None:
             [EXIFTOOL_PATH, "-all=", "-overwrite_original", path],
             capture_output=True,
             timeout=30,
+            **subprocess_kwargs_no_window(),
         )
     except Exception:
         pass
@@ -175,7 +187,7 @@ def repurpose_image(input_path: str, output_path: str, mirror_flip=False):
             "2",
             output_path,
         ]
-        proc = subprocess.run(cmd, capture_output=True)
+        proc = subprocess.run(cmd, capture_output=True, **subprocess_kwargs_no_window())
         if not os.path.exists(output_path) or os.path.getsize(output_path) < 100:
             err_lines = proc.stderr.decode("utf-8", errors="replace").strip().splitlines()
             last_err = next((line for line in reversed(err_lines) if line.strip()), "Processing failed")
@@ -219,7 +231,7 @@ def repurpose_video(input_path: str, output_path: str, mirror_flip=False):
             "-1",
             output_path,
         ]
-        proc = subprocess.run(cmd, capture_output=True)
+        proc = subprocess.run(cmd, capture_output=True, **subprocess_kwargs_no_window())
         if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
             err_lines = proc.stderr.decode("utf-8", errors="replace").strip().splitlines()
             last_err = next((line for line in reversed(err_lines) if line.strip()), "Processing failed")
