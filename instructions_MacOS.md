@@ -23,6 +23,12 @@ ffmpeg -version
 exiftool -ver
 ```
 
+Add FFMPEG to PATH:
+
+```bash
+sudo ln -s /opt/homebrew/bin/ffmpeg /usr/local/bin/ffmpeg
+```
+
 ## 2) Download the app from GitHub Releases
 
 1. Open: `https://github.com/TheDevWhoSaysNi/NiRepurpose/releases`
