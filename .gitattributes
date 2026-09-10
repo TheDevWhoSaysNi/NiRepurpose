@@ -1,0 +1,8 @@
+# Git LFS for bundled Windows binaries (Full edition)
+tools/*.exe filter=lfs diff=lfs merge=lfs -text
+tools/exiftool_files/** filter=lfs diff=lfs merge=lfs -text
+# Mark bundled tools as vendor code
+tools/** linguist-vendored
+# Ignore build outputs in language stats
+build/** linguist-vendored
+dist/** linguist-vendored
