@@ -9,7 +9,10 @@ If you remove attribution, the Knights Who Say Ni! may demandâ€¦ a shrubbery! ðŸ
 Third-Party Notices
 ------------------------------------------------------------
 
-NiRepurpose uses the following tools installed on your PATH:
+NiRepurpose uses ExifTool and FFmpeg.
+
+- **Lite releases** expect these tools installed on the user's PATH.
+- **Full releases** bundle these tools for easier distribution.
 
 1) ExifTool
    ExifTool by Phil Harvey (Perl / distribution license).
@@ -21,12 +24,14 @@ NiRepurpose uses the following tools installed on your PATH:
    Project: FFmpeg
    Source: https://ffmpeg.org/
 
+macOS Full builds may download a static FFmpeg binary during CI from:
+https://github.com/eugeneware/ffmpeg-static
 
-NiRepurpose uses the the following artwork:
+------------------------------------------------------------
+Artwork
+------------------------------------------------------------
 
 1) Icon
    Source: https://www.freepik.com/icon/camera_1042339
 
-
 NiRepurpose is thankful to https://github.com/pandoo7 for the idea and original Python code for batch processing of images. I added his main code, mirror flip, and random file names to the Ni template and added video processing, and the original options from NiClean.
-

@@ -1,19 +1,39 @@
-# Instructions - macOS (Release App)
+# Instructions - macOS
 
-These steps are for end users downloading the packaged app from GitHub Releases.
+## Which download should I use?
 
-## 1) Install required tools (one-time)
+- **Full (recommended):** `NiRepurpose-Full-macOS.zip`
+  - Includes bundled `ffmpeg` + `exiftool`
+  - Best for most users
+- **Lite:** `NiRepurpose-Lite-macOS.zip`
+  - Smaller file
+  - Requires `ffmpeg` and `exiftool` installed on PATH
 
-If Homebrew is not installed:
+Releases: https://github.com/TheDevWhoSaysNi/NiRepurpose/releases
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+## Full edition (easiest)
 
-Install required tools:
+1. Download `NiRepurpose-Full-macOS.zip`
+2. Extract it
+3. Open `NiRepurpose.app`
+4. If macOS blocks first launch: right-click -> `Open` -> `Open`
+5. Click `Select Folder` for your media folder
+6. Output appears in `NiRepurpose_repurposed` inside that folder
+
+Note: the Full macOS build still needs a system `perl` install to run the bundled ExifTool script (usually already present on macOS).
+
+## Lite edition (tools on PATH)
+
+Install Homebrew tools:
 
 ```bash
 brew install ffmpeg exiftool
+```
+
+If `ffmpeg` is installed but not found on PATH (Apple Silicon Homebrew), add it:
+
+```bash
+sudo ln -s /opt/homebrew/bin/ffmpeg /usr/local/bin/ffmpeg
 ```
 
 Verify:
@@ -23,27 +43,4 @@ ffmpeg -version
 exiftool -ver
 ```
 
-Add FFMPEG to PATH:
-
-```bash
-sudo ln -s /opt/homebrew/bin/ffmpeg /usr/local/bin/ffmpeg
-```
-
-## 2) Download the app from GitHub Releases
-
-1. Open: `https://github.com/TheDevWhoSaysNi/NiRepurpose/releases`
-2. Download the latest `NiRepurpose-macOS.zip`
-3. Extract the zip
-
-## 3) Run the app
-
-1. Open `NiRepurpose.app` from the extracted folder
-2. If macOS blocks first launch:
-   - Right-click `NiRepurpose.app` -> `Open`
-   - Click `Open` again
-
-## 4) Use it on your media
-
-- Click `Select Folder` and choose the folder that has your media
-- Output is automatically created in:
-  - `NiRepurpose_repurposed` inside the selected folder
+Then extract `NiRepurpose-Lite-macOS.zip` and open `NiRepurpose.app`.

@@ -6,61 +6,47 @@ It supports both images and videos, applies subtle randomized processing, strips
 
 ## Features
 
-- NiClean-style dark UI and workflow
+- NiClean-style UI and workflow
 - Bulk media processing (`images + videos`)
 - Optional recursive scan with `Include Subfolders`
 - Copies-per-media control (`1` to `100`)
-- Naming modes:
-  - `iPhone`
-  - `Android`
-  - `Original`
-  - `Random` (`IMG_`, `PIC_`, `SHOT_`, `VID_`, `CLIP_`, etc.)
+- Naming modes: `iPhone`, `Android`, `Original`, `Random`
 - Random mirror flip option (`hflip` only)
 - Optional run log generation (`NiRepurpose_log.txt`)
 - Metadata stripping via `exiftool`
 - Social-friendly encode defaults via `ffmpeg`
 
-## Requirements
+## Releases: Lite vs Full
 
-- Python `3.10+` (3.11 recommended)
-- `pip`
-- `ffmpeg` on PATH
-- `exiftool` on PATH
+Every tagged release (`v*`) publishes **two editions** for Windows, Linux, and macOS:
 
-Python dependency:
-
-- `customtkinter`
-
-## Quick Start (Release App)
-
-For easiest use, download packaged builds from GitHub Releases:
+| Edition | Download name | Best for | Tools |
+|---------|---------------|----------|-------|
+| **Full** | `NiRepurpose-Full-*.zip` | Most users | Bundled `ffmpeg` + `exiftool` |
+| **Lite** | `NiRepurpose-Lite-*.zip` | Smaller download | You install `ffmpeg` + `exiftool` on PATH |
 
 - [NiRepurpose Releases](https://github.com/TheDevWhoSaysNi/NiRepurpose/releases)
 
-Then follow your OS guide below.
+## Quick Start
+
+1. Download **Full** for your OS (easiest), or **Lite** if you already keep tools on PATH.
+2. Extract and run.
+3. Click `Select Folder`, then `NiRepurpose my Media`.
+4. Output is written to `<Destination Folder>/NiRepurpose_repurposed`.
+
+OS guides:
+
+- `Instructions_Windows.md`
+- `Instructions_Linux.md`
+- `Instructions_MacOS.md`
 
 ## How Output Works
 
 - Choose `Destination Folder` in the UI.
 - NiRepurpose writes output to:
   - `<Destination Folder>/NiRepurpose_repurposed`
-- No separate output-picker is required.
-
-## OS-specific Setup Docs
-
-Use these for easy copy/paste install commands:
-
-- `Instructions_Windows.md`
-- `Instructions_Linux.md`
-- `Instructions_MacOS.md`
-
-## Packaging
-
-Tagging `v*` in GitHub triggers the release workflow and builds Windows, Linux, and macOS artifacts.
 
 ## Developer Run (from source)
-
-If you are developing locally:
 
 ```bash
 git clone https://github.com/TheDevWhoSaysNi/NiRepurpose.git
@@ -68,12 +54,10 @@ cd NiRepurpose
 python -m venv .venv
 ```
 
-Activate environment:
+Activate:
 
 - Windows PowerShell: `.\.venv\Scripts\Activate.ps1`
 - macOS/Linux: `source .venv/bin/activate`
-
-Install dependency and run:
 
 ```bash
 python -m pip install --upgrade pip
@@ -81,15 +65,14 @@ pip install -r requirements.txt
 python NiRepurpose.py
 ```
 
-For manual local packaging:
+Source/dev mode uses `ffmpeg` and `exiftool` from PATH (or from a local `tools/` folder if present).
 
-```bash
-pip install pyinstaller
-pyinstaller --noconfirm --windowed --name NiRepurpose NiRepurpose.py
-```
+## Packaging
+
+Tagging `v*` triggers GitHub Actions and builds Lite + Full for Windows, Linux, and macOS.
 
 ## Notes
 
-- NiRepurpose does **not** bundle `ffmpeg` or `exiftool`.
-- Install both tools system-wide before running.
+- Full edition is recommended for non-CLI users.
+- Lite edition stays small and expects system-installed tools.
 - Test on sample media before large runs.

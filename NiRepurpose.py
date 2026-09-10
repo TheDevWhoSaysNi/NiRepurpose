@@ -13,6 +13,7 @@ import os
 import platform
 import random
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -25,11 +26,9 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 APP_NAME = "NiRepurpose"
-APP_VERSION = "v0.1.0"
+APP_VERSION = "v0.2.0"
 DEFAULT_OUTPUT_FOLDER = "NiRepurpose_repurposed"
 
-FFMPEG_PATH = "ffmpeg"
-EXIFTOOL_PATH = "exiftool"
 VIDEO_CRF = "14"
 VIDEO_PRESET = "slow"
 AUDIO_BITRATE = "320k"
@@ -49,7 +48,11 @@ def default_input_dir() -> Path:
         if platform.system() == "Darwin":
             for ni_parent in exe_path.parents:
                 if ni_parent.suffix == ".app":
-                    return ni_parent.parent
+                    containing = ni_parent.parent
+                    if "AppTranslocation" in containing.parts:
+                        pictures = Path.home() / "Pictures"
+                        return pictures if pictures.is_dir() else Path.home()
+                    return containing
         return exe_path.parent
     return Path(__file__).resolve().parent
 
@@ -71,6 +74,65 @@ def subprocess_kwargs_no_window() -> dict:
             "startupinfo": startup_info,
         }
     return {}
+
+
+def _ensure_unix_executable(path: str) -> str:
+    if platform.system() == "Windows":
+        return path
+    ni_path = Path(path)
+    try:
+        mode = ni_path.stat().st_mode
+        if not (mode & stat.S_IXUSR):
+            ni_path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    except Exception:
+        pass
+    return path
+
+
+def get_tool_path(tool_name: str):
+    """Find ffmpeg/exiftool in bundled tools first, then system PATH."""
+    system = platform.system()
+    exe_name = f"{tool_name}.exe" if system == "Windows" else tool_name
+    candidates: list[Path] = [Path(resource_path(f"tools/{exe_name}"))]
+
+    exe_path = Path(sys.executable).resolve()
+    candidates.append(exe_path.parent / "tools" / exe_name)
+
+    if system == "Darwin":
+        for ni_parent in exe_path.parents:
+            if ni_parent.suffix == ".app":
+                candidates.extend(
+                    [
+                        ni_parent / "Contents" / "Resources" / "tools" / exe_name,
+                        ni_parent / "Contents" / "MacOS" / "tools" / exe_name,
+                        ni_parent / "Contents" / "Frameworks" / "tools" / exe_name,
+                        ni_parent / "Contents" / "Frameworks" / "_internal" / "tools" / exe_name,
+                        ni_parent / "Contents" / "Resources" / "_internal" / "tools" / exe_name,
+                    ]
+                )
+                break
+
+    for ni_candidate in candidates:
+        if ni_candidate.exists() and ni_candidate.is_file():
+            return _ensure_unix_executable(str(ni_candidate))
+
+    return shutil.which(tool_name)
+
+
+def _is_perl_script(path: str) -> bool:
+    try:
+        with open(path, "rb") as ni_file:
+            first = ni_file.readline(160)
+        return first.startswith(b"#!") and b"perl" in first.lower()
+    except Exception:
+        return False
+
+
+def exiftool_argv(exiftool_path: str, *args: str) -> list[str]:
+    if platform.system() != "Windows" and _is_perl_script(exiftool_path):
+        perl = shutil.which("perl") or "/usr/bin/perl"
+        return [perl, exiftool_path, *args]
+    return [exiftool_path, *args]
 
 
 def generate_random_image_name() -> str:
@@ -127,16 +189,21 @@ def generate_random_video_name() -> str:
     return f"{prefix}{date_compact}.MP4"
 
 
-def strip_all_metadata(path: str) -> None:
+def strip_all_metadata(path: str, exiftool_path: str | None = None) -> bool:
+    tool = exiftool_path or get_tool_path("exiftool")
+    if not tool:
+        return False
     try:
         subprocess.run(
-            [EXIFTOOL_PATH, "-all=", "-overwrite_original", path],
+            exiftool_argv(tool, "-all=", "-overwrite_original", path),
             capture_output=True,
             timeout=30,
+            check=False,
             **subprocess_kwargs_no_window(),
         )
+        return True
     except Exception:
-        pass
+        return False
 
 
 def random_filter_chain(allow_mirror=False) -> str:
@@ -165,11 +232,14 @@ def random_filter_chain(allow_mirror=False) -> str:
     return ",".join(filters)
 
 
-def repurpose_image(input_path: str, output_path: str, mirror_flip=False):
+def repurpose_image(input_path: str, output_path: str, mirror_flip=False, ffmpeg_path: str | None = None, exiftool_path: str | None = None):
     try:
+        ffmpeg = ffmpeg_path or get_tool_path("ffmpeg")
+        if not ffmpeg:
+            return False, "ffmpeg not found"
         filter_string = random_filter_chain(allow_mirror=mirror_flip)
         cmd = [
-            FFMPEG_PATH,
+            ffmpeg,
             "-y",
             "-i",
             input_path,
@@ -190,20 +260,23 @@ def repurpose_image(input_path: str, output_path: str, mirror_flip=False):
         proc = subprocess.run(cmd, capture_output=True, **subprocess_kwargs_no_window())
         if not os.path.exists(output_path) or os.path.getsize(output_path) < 100:
             err_lines = proc.stderr.decode("utf-8", errors="replace").strip().splitlines()
-            last_err = next((line for line in reversed(err_lines) if line.strip()), "Processing failed")
+            last_err = next((ni_line for ni_line in reversed(err_lines) if ni_line.strip()), "Processing failed")
             return False, last_err
-        strip_all_metadata(output_path)
+        strip_all_metadata(output_path, exiftool_path=exiftool_path)
         return True, None
     except Exception as exc:
         return False, str(exc)
 
 
-def repurpose_video(input_path: str, output_path: str, mirror_flip=False):
+def repurpose_video(input_path: str, output_path: str, mirror_flip=False, ffmpeg_path: str | None = None, exiftool_path: str | None = None):
     try:
+        ffmpeg = ffmpeg_path or get_tool_path("ffmpeg")
+        if not ffmpeg:
+            return False, "ffmpeg not found"
         filter_string = random_filter_chain(allow_mirror=mirror_flip)
         filter_string = f"{filter_string},scale=trunc(iw/2)*2:trunc(ih/2)*2"
         cmd = [
-            FFMPEG_PATH,
+            ffmpeg,
             "-y",
             "-i",
             input_path,
@@ -234,9 +307,9 @@ def repurpose_video(input_path: str, output_path: str, mirror_flip=False):
         proc = subprocess.run(cmd, capture_output=True, **subprocess_kwargs_no_window())
         if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
             err_lines = proc.stderr.decode("utf-8", errors="replace").strip().splitlines()
-            last_err = next((line for line in reversed(err_lines) if line.strip()), "Processing failed")
+            last_err = next((ni_line for ni_line in reversed(err_lines) if ni_line.strip()), "Processing failed")
             return False, last_err
-        strip_all_metadata(output_path)
+        strip_all_metadata(output_path, exiftool_path=exiftool_path)
         return True, None
     except Exception as exc:
         return False, str(exc)
@@ -284,7 +357,7 @@ class RepurposerApp(ctk.CTk):
         )
         self.github_btn.pack(pady=10, padx=20, anchor="ne")
 
-        self.label = ctk.CTkLabel(self, text="NiRepurpose Image Repurposer", font=("Arial", 24, "bold"))
+        self.label = ctk.CTkLabel(self, text="NiRepurpose Media Repurposer", font=("Arial", 24, "bold"))
         self.label.pack(pady=10)
 
         self.status_label = ctk.CTkLabel(self, text="Ready To Repurpose Media", font=("Arial", 14))
@@ -433,7 +506,6 @@ class RepurposerApp(ctk.CTk):
     def _resolve_name(self, src_path: Path, mode: str) -> str:
         src_stem = src_path.stem
         src_ext = src_path.suffix.lower()
-        is_image = src_ext in IMAGE_EXTS
         is_video = src_ext in VIDEO_EXTS
         if mode == NAME_KEEP:
             if is_video:
@@ -466,11 +538,22 @@ class RepurposerApp(ctk.CTk):
     def start_processing(self) -> None:
         if self._processing:
             return
-        if shutil.which(FFMPEG_PATH) is None:
-            messagebox.showerror(APP_NAME, "ffmpeg is not on PATH. Install it first.")
+
+        ffmpeg_path = get_tool_path("ffmpeg")
+        exiftool_path = get_tool_path("exiftool")
+        if not ffmpeg_path:
+            messagebox.showerror(
+                APP_NAME,
+                "ffmpeg was not found.\n\n"
+                "Use the Full release (tools bundled), or install ffmpeg and keep it on PATH.",
+            )
             return
-        if shutil.which(EXIFTOOL_PATH) is None:
-            messagebox.showerror(APP_NAME, "exiftool is not on PATH. Install it first.")
+        if not exiftool_path:
+            messagebox.showerror(
+                APP_NAME,
+                "exiftool was not found.\n\n"
+                "Use the Full release (tools bundled), or install exiftool and keep it on PATH.",
+            )
             return
 
         files = self._scan_media()
@@ -490,11 +573,11 @@ class RepurposerApp(ctk.CTk):
 
         threading.Thread(
             target=self._worker,
-            args=(files, out_root, ni_copies),
+            args=(files, out_root, ni_copies, ffmpeg_path, exiftool_path),
             daemon=True,
         ).start()
 
-    def _worker(self, files, out_root: Path, ni_copies: int) -> None:
+    def _worker(self, files, out_root: Path, ni_copies: int, ffmpeg_path: str, exiftool_path: str) -> None:
         total = len(files) * ni_copies
         scrubbed = 0
         failed = 0
@@ -518,20 +601,20 @@ class RepurposerApp(ctk.CTk):
                 write_log = False
 
         ni_done = 0
-        for ni, src in enumerate(files, start=1):
+        for ni, ni_src in enumerate(files, start=1):
             for ni_copy in range(1, ni_copies + 1):
                 ni_done += 1
                 self._set_progress(ni_done / total)
                 if ni_copies > 1:
                     self._set_status(
-                        f"Repurposing {ni_done} of {total}: {src.name} (copy {ni_copy}/{ni_copies}) Ni! Ping! Nee-wopp."
+                        f"Repurposing {ni_done} of {total}: {ni_src.name} (copy {ni_copy}/{ni_copies}) Ni! Ping! Nee-wopp."
                     )
                 else:
-                    self._set_status(f"Repurposing {ni_done} of {total}: {src.name} Ni! Ping! Nee-wopp.")
+                    self._set_status(f"Repurposing {ni_done} of {total}: {ni_src.name} Ni! Ping! Nee-wopp.")
 
                 temp_out = None
                 try:
-                    src_ext = src.suffix.lower()
+                    src_ext = ni_src.suffix.lower()
                     is_video = src_ext in VIDEO_EXTS
                     tmp_suffix = ".mp4" if is_video else ".jpg"
                     tmp = tempfile.NamedTemporaryFile(suffix=tmp_suffix, dir=out_root, delete=False)
@@ -539,41 +622,53 @@ class RepurposerApp(ctk.CTk):
                     tmp.close()
 
                     if is_video:
-                        success, err = repurpose_video(str(src), str(temp_out), mirror_flip=mirror_flip)
+                        success, err = repurpose_video(
+                            str(ni_src),
+                            str(temp_out),
+                            mirror_flip=mirror_flip,
+                            ffmpeg_path=ffmpeg_path,
+                            exiftool_path=exiftool_path,
+                        )
                     else:
-                        success, err = repurpose_image(str(src), str(temp_out), mirror_flip=mirror_flip)
+                        success, err = repurpose_image(
+                            str(ni_src),
+                            str(temp_out),
+                            mirror_flip=mirror_flip,
+                            ffmpeg_path=ffmpeg_path,
+                            exiftool_path=exiftool_path,
+                        )
                     if not success:
                         failed += 1
                         if temp_out.exists():
                             temp_out.unlink()
-                        print(f"Ni! Failed on {src.name}: {err}")
+                        print(f"Ni! Failed on {ni_src.name}: {err}")
                         if write_log:
                             try:
                                 with log_file_path.open("a", encoding="utf-8") as ni_log:
-                                    ni_log.write(f"[FAIL] {src.name} (copy {ni_copy}/{ni_copies}) :: {err}\n")
+                                    ni_log.write(f"[FAIL] {ni_src.name} (copy {ni_copy}/{ni_copies}) :: {err}\n")
                             except Exception:
                                 pass
                         continue
 
-                    ni_name = self._resolve_name(src, naming_mode)
+                    ni_name = self._resolve_name(ni_src, naming_mode)
                     ni_dest = self._unique_path(out_root / ni_name)
                     temp_out.replace(ni_dest)
                     scrubbed += 1
                     if write_log:
                         try:
                             with log_file_path.open("a", encoding="utf-8") as ni_log:
-                                ni_log.write(f"[OK] {src.name} (copy {ni_copy}/{ni_copies}) -> {ni_dest.name}\n")
+                                ni_log.write(f"[OK] {ni_src.name} (copy {ni_copy}/{ni_copies}) -> {ni_dest.name}\n")
                         except Exception:
                             pass
                 except Exception as exc:
                     failed += 1
                     if temp_out and temp_out.exists():
                         temp_out.unlink()
-                    print(f"Ni! Error processing {src}: {exc}")
+                    print(f"Ni! Error processing {ni_src}: {exc}")
                     if write_log:
                         try:
                             with log_file_path.open("a", encoding="utf-8") as ni_log:
-                                ni_log.write(f"[ERROR] {src.name} (copy {ni_copy}/{ni_copies}) :: {exc}\n")
+                                ni_log.write(f"[ERROR] {ni_src.name} (copy {ni_copy}/{ni_copies}) :: {exc}\n")
                         except Exception:
                             pass
 
@@ -595,7 +690,7 @@ class RepurposerApp(ctk.CTk):
         self.after(
             0,
             lambda: messagebox.showinfo(
-                "NiClean Complete",
+                "NiRepurpose Complete",
                 f"Processed: {total}\nScrubbed: {scrubbed}\nIssues: {failed}\n\nDone. I mean, Ni!",
             ),
         )

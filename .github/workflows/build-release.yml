@@ -10,11 +10,11 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: "v0.1.0"
+  APP_VERSION: "v0.2.0"
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
+    name: Build ${{ matrix.edition }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -22,29 +22,109 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset_name: NiRepurpose-Windows.zip
+            edition: lite
+            asset_name: NiRepurpose-Lite-Windows.zip
+          - os: windows-latest
+            edition: full
+            asset_name: NiRepurpose-Full-Windows.zip
           - os: ubuntu-latest
-            asset_name: NiRepurpose-Linux.zip
+            edition: lite
+            asset_name: NiRepurpose-Lite-Linux.zip
+          - os: ubuntu-latest
+            edition: full
+            asset_name: NiRepurpose-Full-Linux.zip
           - os: macos-latest
-            asset_name: NiRepurpose-macOS.zip
+            edition: lite
+            asset_name: NiRepurpose-Lite-macOS.zip
+          - os: macos-latest
+            edition: full
+            asset_name: NiRepurpose-Full-macOS.zip
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Force LFS pull (Windows Full)
+        if: matrix.edition == 'full' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          git lfs install --local
+          git lfs pull
+          git lfs ls-files
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11.9"
+          python-version: "3.12"
 
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install pyinstaller
+          python -m pip install "pyinstaller==6.22.2"
 
-      - name: Build (Windows)
-        if: runner.os == 'Windows'
+      - name: Verify tools exist (Windows Full)
+        if: matrix.edition == 'full' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (!(Test-Path "tools\ffmpeg.exe")) { throw "Missing tools\ffmpeg.exe" }
+          if (!(Test-Path "tools\exiftool.exe")) { throw "Missing tools\exiftool.exe" }
+          if (!(Test-Path "tools\exiftool_files")) { throw "Missing tools\exiftool_files" }
+          if ((Get-Item "tools\ffmpeg.exe").Length -lt 1000000) {
+            throw "ffmpeg.exe looks like an LFS pointer (too small)"
+          }
+          $firstLine = Get-Content "tools\exiftool.exe" -TotalCount 1
+          if ($firstLine -like "version https://git-lfs.github.com/spec/v1*") {
+            throw "exiftool.exe is an LFS pointer (not the real file)."
+          }
+
+      - name: Install tools (Linux Full)
+        if: matrix.edition == 'full' && runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libimage-exiftool-perl
+          mkdir -p tools
+          cp "$(command -v ffmpeg)" tools/ffmpeg
+          cp "$(command -v exiftool)" tools/exiftool
+          chmod +x tools/ffmpeg tools/exiftool
+          ls -la tools
+
+      - name: Install tools (macOS Full)
+        if: matrix.edition == 'full' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+
+          ARCH="$(uname -m)"
+          if [ "$ARCH" = "arm64" ]; then
+            FF_ARCH="darwin-arm64"
+          else
+            FF_ARCH="darwin-x64"
+          fi
+          curl -fsSL "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-${FF_ARCH}.gz" -o /tmp/ffmpeg.gz
+          gunzip -c /tmp/ffmpeg.gz > tools/ffmpeg
+          chmod +x tools/ffmpeg
+          tools/ffmpeg -version | head -n 1
+
+          EXIF_VER="$(curl -fsSL https://exiftool.org/ver.txt | tr -d '[:space:]')"
+          curl -fsSL "https://github.com/exiftool/exiftool/archive/refs/tags/${EXIF_VER}.tar.gz" -o /tmp/exiftool.tar.gz
+          rm -rf /tmp/exiftool-extract
+          mkdir -p /tmp/exiftool-extract
+          tar -xzf /tmp/exiftool.tar.gz -C /tmp/exiftool-extract
+          SRC="$(find /tmp/exiftool-extract -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          cp "$SRC/exiftool" tools/exiftool
+          cp -R "$SRC/lib" tools/lib
+          chmod +x tools/exiftool
+          perl tools/exiftool -ver
+          ls -la tools
+
+      - name: Build Lite (Windows)
+        if: matrix.edition == 'lite' && runner.os == 'Windows'
         shell: pwsh
         run: |
           pyinstaller --noconfirm --onefile --windowed --name NiRepurpose `
@@ -53,8 +133,21 @@ jobs:
             --add-data "assets\nirepurpose.ico;assets" `
             NiRepurpose.py
 
-      - name: Build (Linux)
-        if: runner.os == 'Linux'
+      - name: Build Full (Windows)
+        if: matrix.edition == 'full' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name NiRepurpose `
+            --collect-all customtkinter `
+            --icon "assets\nirepurpose.ico" `
+            --add-data "assets\nirepurpose.ico;assets" `
+            --add-binary "tools\ffmpeg.exe;tools" `
+            --add-binary "tools\exiftool.exe;tools" `
+            --add-data "tools\exiftool_files;tools\exiftool_files" `
+            NiRepurpose.py
+
+      - name: Build Lite (Linux)
+        if: matrix.edition == 'lite' && runner.os == 'Linux'
         shell: bash
         run: |
           pyinstaller --noconfirm --onefile --name NiRepurpose \
@@ -63,15 +156,48 @@ jobs:
             --add-data "assets/nirepurpose.png:assets" \
             NiRepurpose.py
 
-      - name: Build (macOS)
-        if: runner.os == 'macOS'
+      - name: Build Full (Linux)
+        if: matrix.edition == 'full' && runner.os == 'Linux'
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --onefile --name NiRepurpose \
+            --collect-all customtkinter \
+            --icon "assets/nirepurpose.png" \
+            --add-data "assets/nirepurpose.png:assets" \
+            --add-binary "tools/ffmpeg:tools" \
+            --add-binary "tools/exiftool:tools" \
+            NiRepurpose.py
+
+      - name: Build Lite (macOS)
+        if: matrix.edition == 'lite' && runner.os == 'macOS'
         shell: bash
         run: |
           pyinstaller --noconfirm --windowed --name NiRepurpose \
             --collect-all customtkinter \
+            --osx-bundle-identifier com.thedevwhosaysni.nirepurpose \
             --icon "assets/nirepurpose.icns" \
             --add-data "assets/nirepurpose.icns:assets" \
+            --add-data "assets/nirepurpose.png:assets" \
             NiRepurpose.py
+          codesign --force --sign - dist/NiRepurpose.app
+          xattr -cr dist/NiRepurpose.app || true
+
+      - name: Build Full (macOS)
+        if: matrix.edition == 'full' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --windowed --name NiRepurpose \
+            --collect-all customtkinter \
+            --osx-bundle-identifier com.thedevwhosaysni.nirepurpose \
+            --icon "assets/nirepurpose.icns" \
+            --add-data "assets/nirepurpose.icns:assets" \
+            --add-data "assets/nirepurpose.png:assets" \
+            --add-binary "tools/ffmpeg:tools" \
+            --add-data "tools/exiftool:tools" \
+            --add-data "tools/lib:tools/lib" \
+            NiRepurpose.py
+          codesign --force --sign - dist/NiRepurpose.app
+          xattr -cr dist/NiRepurpose.app || true
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -120,9 +246,16 @@ jobs:
         with:
           name: NiRepurpose ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
+          body: |
+            ## Editions
+            - **Lite** (`NiRepurpose-Lite-*.zip`): smaller download. Requires `ffmpeg` and `exiftool` installed on PATH.
+            - **Full** (`NiRepurpose-Full-*.zip`): includes bundled `ffmpeg` + `exiftool`. Recommended for most users.
           files: |
-            artifacts/**/NiRepurpose-Windows.zip
-            artifacts/**/NiRepurpose-Linux.zip
-            artifacts/**/NiRepurpose-macOS.zip
+            artifacts/**/NiRepurpose-Lite-Windows.zip
+            artifacts/**/NiRepurpose-Lite-Linux.zip
+            artifacts/**/NiRepurpose-Lite-macOS.zip
+            artifacts/**/NiRepurpose-Full-Windows.zip
+            artifacts/**/NiRepurpose-Full-Linux.zip
+            artifacts/**/NiRepurpose-Full-macOS.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

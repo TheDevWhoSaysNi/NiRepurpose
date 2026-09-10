@@ -1,10 +1,27 @@
-# Instructions - Windows (Release App)
+# Instructions - Windows
 
-These steps are for end users downloading the packaged app from GitHub Releases.
+## Which download should I use?
 
-## 1) Install required tools (one-time)
+- **Full (recommended):** `NiRepurpose-Full-Windows.zip`
+  - Includes bundled `ffmpeg` + `exiftool`
+  - No CLI setup required
+- **Lite:** `NiRepurpose-Lite-Windows.zip`
+  - Smaller file
+  - Requires `ffmpeg` and `exiftool` installed on PATH
 
-Open PowerShell and run:
+Releases: https://github.com/TheDevWhoSaysNi/NiRepurpose/releases
+
+## Full edition (easiest)
+
+1. Download `NiRepurpose-Full-Windows.zip`
+2. Extract it
+3. Double-click `NiRepurpose.exe`
+4. Click `Select Folder` for your media folder
+5. Output appears in `NiRepurpose_repurposed` inside that folder
+
+## Lite edition (tools on PATH)
+
+### 1) Install tools (one-time)
 
 ```powershell
 winget install Gyan.FFmpeg
@@ -18,19 +35,8 @@ ffmpeg -version
 exiftool -ver
 ```
 
-## 2) Download the app from GitHub Releases
+### 2) Download and run
 
-1. Open: `https://github.com/TheDevWhoSaysNi/NiRepurpose/releases`
-2. Download the latest `NiRepurpose-Windows.zip`
-3. Extract the zip anywhere on your computer
-
-## 3) Run the app
-
-1. Open the extracted folder
-2. Double-click `NiRepurpose.exe`
-
-## 4) Use it on your media
-
-- Click `Select Folder` and choose the folder that has your media
-- Output is automatically created in:
-  - `NiRepurpose_repurposed` inside the selected folder
+1. Download `NiRepurpose-Lite-Windows.zip`
+2. Extract and run `NiRepurpose.exe`
+3. Select your media folder and process

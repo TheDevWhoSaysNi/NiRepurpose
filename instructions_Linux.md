@@ -1,8 +1,28 @@
-# Instructions - Linux (Release App)
+# Instructions - Linux
 
-These steps are for end users downloading the packaged app from GitHub Releases.
+## Which download should I use?
 
-## 1) Install required tools (one-time)
+- **Full (recommended):** `NiRepurpose-Full-Linux.zip`
+  - Includes bundled `ffmpeg` + `exiftool`
+  - No CLI setup required for tools
+- **Lite:** `NiRepurpose-Lite-Linux.zip`
+  - Smaller file
+  - Requires `ffmpeg` and `exiftool` installed on PATH
+
+Releases: https://github.com/TheDevWhoSaysNi/NiRepurpose/releases
+
+## Full edition (easiest)
+
+```bash
+# After downloading NiRepurpose-Full-Linux.zip
+unzip NiRepurpose-Full-Linux.zip
+chmod +x NiRepurpose
+./NiRepurpose
+```
+
+Then click `Select Folder` for your media folder. Output is created in `NiRepurpose_repurposed`.
+
+## Lite edition (tools on PATH)
 
 ### Ubuntu / Debian
 
@@ -24,23 +44,10 @@ ffmpeg -version
 exiftool -ver
 ```
 
-## 2) Download the app from GitHub Releases
-
-1. Open: `https://github.com/TheDevWhoSaysNi/NiRepurpose/releases`
-2. Download the latest `NiRepurpose-Linux.zip`
-3. Extract it
-
-## 3) Run the app
-
-From terminal in the extracted folder:
+Then:
 
 ```bash
+unzip NiRepurpose-Lite-Linux.zip
 chmod +x NiRepurpose
 ./NiRepurpose
 ```
-
-## 4) Use it on your media
-
-- Click `Select Folder` and choose the folder that has your media
-- Output is automatically created in:
-  - `NiRepurpose_repurposed` inside the selected folder
