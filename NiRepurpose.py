@@ -26,7 +26,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 APP_NAME = "NiRepurpose"
-APP_VERSION = "v0.2.0"
+APP_VERSION = "v0.2.1"
 DEFAULT_OUTPUT_FOLDER = "NiRepurpose_repurposed"
 
 VIDEO_CRF = "14"

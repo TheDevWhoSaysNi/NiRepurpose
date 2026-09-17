@@ -18,12 +18,19 @@ It supports both images and videos, applies subtle randomized processing, strips
 
 ## Releases: Lite vs Full
 
-Every tagged release (`v*`) publishes **two editions** for Windows, Linux, and macOS:
+Every tagged release (`v*`) publishes **two editions** for Windows, Linux, macOS Apple Silicon, and macOS Intel:
 
 | Edition | Download name | Best for | Tools |
 |---------|---------------|----------|-------|
 | **Full** | `NiRepurpose-Full-*.zip` | Most users | Bundled `ffmpeg` + `exiftool` |
 | **Lite** | `NiRepurpose-Lite-*.zip` | Smaller download | You install `ffmpeg` + `exiftool` on PATH |
+
+macOS architecture:
+
+- Apple Silicon (M1/M2/M3/M4): `NiRepurpose-*-macOS.zip`
+- Intel: `NiRepurpose-*-macOS-Intel.zip`
+
+Check with `uname -m` (`arm64` vs `x86_64`). Intel Macs need the Intel zip.
 
 - [NiRepurpose Releases](https://github.com/TheDevWhoSaysNi/NiRepurpose/releases)
 
@@ -69,7 +76,7 @@ Source/dev mode uses `ffmpeg` and `exiftool` from PATH (or from a local `tools/`
 
 ## Packaging
 
-Tagging `v*` triggers GitHub Actions and builds Lite + Full for Windows, Linux, and macOS.
+Tagging `v*` triggers GitHub Actions and builds Lite + Full for Windows, Linux, macOS Apple Silicon, and macOS Intel.
 
 ## Notes
 

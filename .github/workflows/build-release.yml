@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: "v0.2.0"
+  APP_VERSION: "v0.2.1"
 
 jobs:
   build:
@@ -36,9 +36,19 @@ jobs:
           - os: macos-latest
             edition: lite
             asset_name: NiRepurpose-Lite-macOS.zip
+            target_arch: arm64
           - os: macos-latest
             edition: full
             asset_name: NiRepurpose-Full-macOS.zip
+            target_arch: arm64
+          - os: macos-15-intel
+            edition: lite
+            asset_name: NiRepurpose-Lite-macOS-Intel.zip
+            target_arch: x86_64
+          - os: macos-15-intel
+            edition: full
+            asset_name: NiRepurpose-Full-macOS-Intel.zip
+            target_arch: x86_64
 
     steps:
       - name: Checkout
@@ -59,6 +69,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Confirm interpreter architecture
+        run: |
+          python -c "import platform, sys; print(platform.system(), platform.machine(), sys.version)"
 
       - name: Install build dependencies
         run: |
@@ -174,6 +188,7 @@ jobs:
         run: |
           pyinstaller --noconfirm --windowed --name NiRepurpose \
             --collect-all customtkinter \
+            --target-arch "${{ matrix.target_arch }}" \
             --osx-bundle-identifier com.thedevwhosaysni.nirepurpose \
             --icon "assets/nirepurpose.icns" \
             --add-data "assets/nirepurpose.icns:assets" \
@@ -188,6 +203,7 @@ jobs:
         run: |
           pyinstaller --noconfirm --windowed --name NiRepurpose \
             --collect-all customtkinter \
+            --target-arch "${{ matrix.target_arch }}" \
             --osx-bundle-identifier com.thedevwhosaysni.nirepurpose \
             --icon "assets/nirepurpose.icns" \
             --add-data "assets/nirepurpose.icns:assets" \
@@ -198,6 +214,27 @@ jobs:
             NiRepurpose.py
           codesign --force --sign - dist/NiRepurpose.app
           xattr -cr dist/NiRepurpose.app || true
+
+      - name: Verify macOS binary architecture
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="dist/NiRepurpose.app/Contents/MacOS/NiRepurpose"
+          echo "Runner uname: $(uname -m)"
+          python -c "import platform; print('Python machine:', platform.machine())"
+          file "$BIN"
+          ARCHS="$(lipo -archs "$BIN")"
+          echo "App archs: $ARCHS"
+          echo "$ARCHS" | grep -qw "${{ matrix.target_arch }}"
+          if [ -x tools/ffmpeg ]; then
+            file tools/ffmpeg
+            FF_ARCHS="$(lipo -archs tools/ffmpeg 2>/dev/null || true)"
+            echo "ffmpeg archs: ${FF_ARCHS:-unknown}"
+            if [ -n "$FF_ARCHS" ]; then
+              echo "$FF_ARCHS" | grep -qw "${{ matrix.target_arch }}"
+            fi
+          fi
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -233,6 +270,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
@@ -250,12 +288,20 @@ jobs:
             ## Editions
             - **Lite** (`NiRepurpose-Lite-*.zip`): smaller download. Requires `ffmpeg` and `exiftool` installed on PATH.
             - **Full** (`NiRepurpose-Full-*.zip`): includes bundled `ffmpeg` + `exiftool`. Recommended for most users.
+
+            ## macOS architecture
+            - **Apple Silicon** (M1/M2/M3/M4): `NiRepurpose-Lite-macOS.zip` / `NiRepurpose-Full-macOS.zip`
+            - **Intel**: `NiRepurpose-Lite-macOS-Intel.zip` / `NiRepurpose-Full-macOS-Intel.zip`
+
+            Check with `uname -m` (`arm64` = Apple Silicon, `x86_64` = Intel). Intel Macs need the Intel zip.
           files: |
             artifacts/**/NiRepurpose-Lite-Windows.zip
             artifacts/**/NiRepurpose-Lite-Linux.zip
             artifacts/**/NiRepurpose-Lite-macOS.zip
+            artifacts/**/NiRepurpose-Lite-macOS-Intel.zip
             artifacts/**/NiRepurpose-Full-Windows.zip
             artifacts/**/NiRepurpose-Full-Linux.zip
             artifacts/**/NiRepurpose-Full-macOS.zip
+            artifacts/**/NiRepurpose-Full-macOS-Intel.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
